@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <p>1) Строим (выпуклый) многоугольник на ЛКМ, ПКМ - завершаем
+        <br>2) Строим линии дважды ЛКМ</p>
+</head>
+<BODY>
+<canvas id="canvas" width="800" height="800">
+</canvas>
+<script>
+    function Line(ctx, x0, y0, x1, y1) {
+        var dy = Math.abs(y1 - y0);
+        var dx = Math.abs(x1 - x0);
+        var dmax = Math.max(dx, dy);
+        var dmin = Math.min(dx, dy);
+        var xdir = 1;
+        if (x1 < x0) xdir = -1;
+        var ydir = 1;
+        if (y1 < y0) ydir = -1;
+        var eps = 0;
+        var s = 1;
+        var k = 2 * dmin;
+        if (dy <= dx) {
+            var y = y0;
+            for (var x = x0; x * xdir <= x1 * xdir; x += xdir) {
+                ctx.fillRect(x * s, y * s, 1 * s, 1 * s);
+                eps = eps + k;
+                if (eps > dmax) {
+                    y += ydir;
+                    eps = eps - 2 * dmax;
+                }
+            }
+        } else {
+            var x = x0;
+            for (var y = y0; y * ydir <= y1 * ydir; y += ydir) {
+                ctx.fillRect(x * s, y * s, 1 * s, 1 * s);
+                eps = eps + k;
+                if (eps > dmax) {
+                    x += xdir;
+                    eps = eps - 2 * dmax;
+                }
+            }
+        }
+    }
+</script>
+
+<script>
+    var canvas = document.getElementById("canvas");
+    var ctx = canvas.getContext("2d");
+
+    var state = 0;
+    var edgeStartXTmp, edgeStartYTmp;
+    var edgeStartX, edgeStartY;
+    var edgeEndX, edgeEndY;
+    var lineStartX, lineStartY;
+    var lineEndX, lineEndY;
+    var polygonLines = new Map()
+
+    canvas.addEventListener("click", function (event) {
+        switch (state) {
+            case 0:
+                edgeStartXTmp = event.offsetX;
+                edgeStartYTmp = event.offsetY;
+                edgeStartX = event.offsetX;
+                edgeStartY = event.offsetY;
+                state = 1;
+                break;
+            case 1:
+                edgeEndX = event.offsetX;
+                edgeEndY = event.offsetY;
+                Line(ctx, edgeStartXTmp, edgeStartYTmp, edgeEndX, edgeEndY);
+                polygonLines.set([edgeStartXTmp, edgeStartYTmp], [edgeEndX, edgeEndY]);
+                edgeStartXTmp = event.offsetX;
+                edgeStartYTmp = event.offsetY;
+                state = 1;
+                break;
+            case 2:
+                lineStartX = event.offsetX;
+                lineStartY = event.offsetY;
+                state = 3;
+                break;
+            case 3:
+                lineEndX = event.offsetX;
+                lineEndY = event.offsetY;
+                ctx.fillStyle = "#bb7700"
+                var t1 = -1, t2 = -1;
+                var keyStart = -1, keyEnd = -1;
+                Line(ctx, lineStartX, lineStartY, lineEndX, lineEndY);
+                for (var key of polygonLines.keys()) {
+                    if (t1 === -1) {
+                        t1 = ((lineStartY - lineEndY) * (key[0] - lineStartX) + (lineEndX - lineStartX)
+                            * (key[1] - lineStartY)) / ((polygonLines.get(key)[0] - key[0])
+                            * (lineEndY - lineStartY) + (polygonLines.get(key)[1] - key[1]) * (lineStartX - lineEndX));
+                        keyStart = key;
+                        if (t1 > 1 || t1 < 0) {
+                            t1 = -1
+                        } else {
+                            continue
+                        }
+                    }
+                    if (t2 === -1) {
+                        t2 = ((lineStartY - lineEndY) * (key[0] - lineStartX) + (lineEndX - lineStartX)
+                            * (key[1] - lineStartY)) / ((polygonLines.get(key)[0] - key[0])
+                            * (lineEndY - lineStartY) + (polygonLines.get(key)[1] - key[1]) * (lineStartX - lineEndX));
+                        keyEnd = key;
+                        if (t2 > 1 || t2 < 0) {
+                            t2 = -1
+                            continue;
+                        }
+                    }
+                    if (t1 <= 1 && t1 >= 0 && t2 <= 1 && t2 >= 0) {
+                        var eraserStartX = (polygonLines.get(keyStart)[0] - keyStart[0]) * t1 + keyStart[0];
+                        var eraserStartY = (polygonLines.get(keyStart)[1] - keyStart[1]) * t1 + keyStart[1];
+                        var eraserEndX = (polygonLines.get(keyEnd)[0] - keyEnd[0]) * t2 + keyEnd[0];
+                        var eraserEndY = (polygonLines.get(keyEnd)[1] - keyEnd[1]) * t2 + keyEnd[1];
+                        ctx.fillStyle = "#ffffff";
+                        for (var i = 0; i < 10; i += 1) {
+                            Line(ctx, eraserStartX, eraserStartY, eraserEndX, eraserEndY);
+                        }
+                        ctx.fillStyle = "#000000"
+                        Line(ctx, polygonLines.get(keyStart)[0], polygonLines.get(keyStart)[1], keyStart[0], keyStart[1])
+                        break;
+                    }
+                }
+                state = 2;
+                break;
+
+        }
+
+    });
+
+    canvas.addEventListener('contextmenu', function (event) {
+        if (state == 1) {
+            Line(ctx, edgeStartXTmp, edgeStartYTmp, edgeStartX, edgeStartY);
+            polygonLines.set([edgeStartXTmp, edgeStartYTmp], [edgeStartX, edgeStartY])
+            state = 2;
+        }
+    });
+
+</script>
+</BODY>
+</html>

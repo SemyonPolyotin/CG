@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <p>1) Строим (выпуклый) многоугольник на ЛКМ, ПКМ - завершаем
+        <br>2) На ЛКМ многоугольник заполняется</p>
+</head>
+<BODY>
+<canvas id="canvas" width="800" height="800">
+</canvas>
+<script>
+
+    var lineSegmentsIntersect = (x1, y1, x2, y2, x3, y3, x4, y4) => {
+        var aDx = x2 - x1;
+        var aDy = y2 - y1;
+        var bDx = x4 - x3;
+        var bDy = y4 - y3;
+        var s = (-aDy * (x1 - x3) + aDx * (y1 - y3)) / (-bDx * aDy + aDx * bDy);
+        var t = (+bDx * (y1 - y3) - bDy * (x1 - x3)) / (-bDx * aDy + aDx * bDy);
+        return (s >= 0 && s <= 1 && t >= 0 && t <= 1) ? [x1 + t * aDx, y1 + t * aDy] : false;
+    }
+
+    function Line(ctx, x0, y0, x1, y1) {
+        var dy = Math.abs(y1 - y0);
+        var dx = Math.abs(x1 - x0);
+        var dmax = Math.max(dx, dy);
+        var dmin = Math.min(dx, dy);
+        var xdir = 1;
+        if (x1 < x0) xdir = -1;
+        var ydir = 1;
+        if (y1 < y0) ydir = -1;
+        var eps = 0;
+        var s = 1;
+        var k = 2 * dmin;
+        if (dy <= dx) {
+            var y = y0;
+            for (var x = x0; x * xdir <= x1 * xdir; x += xdir) {
+                ctx.fillRect(x * s, y * s, 1 * s, 1 * s);
+                eps = eps + k;
+                if (eps > dmax) {
+                    y += ydir;
+                    eps = eps - 2 * dmax;
+                }
+            }
+        } else {
+            var x = x0;
+            for (var y = y0; y * ydir <= y1 * ydir; y += ydir) {
+                ctx.fillRect(x * s, y * s, 1 * s, 1 * s);
+                eps = eps + k;
+                if (eps > dmax) {
+                    x += xdir;
+                    eps = eps - 2 * dmax;
+                }
+            }
+        }
+    }
+</script>
+<script>
+    var canvas = document.getElementById("canvas");
+    var ctx = canvas.getContext("2d");
+
+    var state = 0;
+    var edgeStartXTmp, edgeStartYTmp;
+    var edgeStartX, edgeStartY;
+    var edgeEndX, edgeEndY;
+    var polygonLines = new Map()
+    var dotMap = new Map()
+    canvas.addEventListener("click", function (event) {
+        switch (state) {
+            case 0:
+                edgeStartXTmp = event.offsetX;
+                edgeStartYTmp = event.offsetY;
+                edgeStartX = event.offsetX;
+                edgeStartY = event.offsetY;
+                state = 1;
+                break;
+            case 1:
+                edgeEndX = event.offsetX;
+                edgeEndY = event.offsetY;
+                Line(ctx, edgeStartXTmp, edgeStartYTmp, edgeEndX, edgeEndY);
+                polygonLines.set([edgeStartXTmp, edgeStartYTmp], [edgeEndX, edgeEndY]);
+                edgeStartXTmp = event.offsetX;
+                edgeStartYTmp = event.offsetY;
+                state = 1;
+                break;
+            case 2:
+                for (var y = 0; y < 800; y++) {
+                    x1 = 0;
+                    y1 = y;
+                    x2 = 800;
+                    y2 = y;
+                    for (var key of polygonLines.keys()) {
+                        x3 = key[0];
+                        y3 = key[1];
+                        x4 = polygonLines.get(key)[0];
+                        y4 = polygonLines.get(key)[1];
+                        if (lineSegmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4) !== false) {
+                            [a, b] = lineSegmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4);
+                            if (dotMap.has(y)) {
+                                dotMap.get(y).push(a);
+                                dotMap.get(y).push(b);
+                            } else {
+                                dotMap.set(y, [a, b]);
+                            }
+                        }
+                    }
+                }
+                for (var y0 of dotMap.keys()) {
+                    for (var i = 0; i < dotMap.get(y0).length - 1; i += 4) {
+                        Line(ctx, dotMap.get(y0)[i], y0, dotMap.get(y0)[i + 2], dotMap.get(y0)[i + 3]);
+                        Line(ctx, dotMap.get(y0)[i], y0, dotMap.get(y0)[i + 2], dotMap.get(y0)[i + 3]);
+                        Line(ctx, dotMap.get(y0)[i], y0, dotMap.get(y0)[i + 2], dotMap.get(y0)[i + 3]);
+                        Line(ctx, dotMap.get(y0)[i], y0, dotMap.get(y0)[i + 2], dotMap.get(y0)[i + 3]);
+                        Line(ctx, dotMap.get(y0)[i], y0, dotMap.get(y0)[i + 2], dotMap.get(y0)[i + 3]);
+                    }
+
+                }
+                state = 3;
+                break;
+        }
+    });
+
+    canvas.addEventListener('contextmenu', function (event) {
+        if (state == 1) {
+            Line(ctx, edgeStartXTmp, edgeStartYTmp, edgeStartX, edgeStartY);
+            polygonLines.set([edgeStartXTmp, edgeStartYTmp], [edgeStartX, edgeStartY])
+            state = 2;
+        }
+    });
+
+</script>
+</BODY>
+</html>
