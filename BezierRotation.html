@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<HEAD>
+    <meta charset="UTF-8">
+    <p>Задайте опорные точки кривой с помощью ЛКМ</p>
+</HEAD>
+<BODY>
+
+<canvas id='lines' width="800" height="800">
+</canvas>
+
+<script>
+    let canvas = document.getElementById('lines');
+    let ctx = canvas.getContext('2d');
+
+    function MVMul(M, v) {
+        let res = [];
+        for (let i = 0; i < dim + 1; i++) {
+            let aij = 0;
+            for (let j = 0; j < dim + 1; j++) {
+                aij += M[i * (dim + 1) + j] * v[j];
+            }
+            res.push(aij);
+        }
+        return res;
+    }
+
+    function MMMul(M1, M2) {
+        let res = [];
+        for (let i = 0; i < dim + 1; i++) {
+            for (let j = 0; j < dim + 1; j++) {
+                let aij = 0;
+                for (let k = 0; k < dim + 1; k++) {
+                    aij += M1[i * (dim + 1) + k] * M2[k * (dim + 1) + j];
+                }
+                res.push(aij);
+            }
+        }
+        return res;
+    }
+
+    function distance(P0, P1, P2) {
+        let k = (P2.y - P0.y) / (P2.x - P0.x);
+        let n = {x: -k, y: 1};
+        let b = P0.y - k * P0.x;
+        return Math.abs(n.x * P1.x + P1.y - b) / Math.sqrt(k * k + 1);
+    }
+
+    function beziers(P0, P1, P2) {
+        let v = [];
+        let vTmp = [];
+        if (distance(P0, P1, P2) >= 1) {
+            let P0_ = {x: 0.5 * (P0.x + P1.x), y: 0.5 * (P0.y + P1.y), z: 0};
+            let P1_ = {x: 0.5 * (P2.x + P1.x), y: 0.5 * (P2.y + P1.y), z: 0};
+            let P0__ = {x: 0.5 * (P0_.x + P1_.x), y: 0.5 * (P0_.y + P1_.y), z: 0};
+            vTmp = beziers(P0, P0_, P0__);
+            for (let i = 0; i < vTmp.length; i++) {
+                v.push(vTmp[i]);
+            }
+            vTmp = beziers(P0__, P1_, P2);
+            for (let i = 0; i < vTmp.length; i++) {
+                v.push(vTmp[i]);
+            }
+            return v;
+        } else {
+            ctx.moveTo(P0.x, P0.y);
+            ctx.lineTo(P2.x, P2.y);
+            return [P0, P2];
+        }
+    }
+
+    function rotBeziers(Mx, M) {
+        let vTmp = [];
+        let prev = [];
+        for (let j = 0; j < 1; j++) {
+            for (let i = 0; i < v.length; i++) {
+                let ret = MVMul(Mx, [v[i].x, v[i].y, v[i].z, 1]);
+                vTmp.push({x: ret[0], y: ret[1], z: ret[2]});
+                ret = MVMul(M, ret);
+                if (prev.length) {
+                    ctx.moveTo(ret[0], ret[1]);
+                    ctx.lineTo(prev[0], prev[1]);
+                }
+                prev[0] = ret[0];
+                prev[1] = ret[1];
+            }
+            v = vTmp;
+        }
+        ctx.stroke();
+    }
+
+</script>
+
+<script>
+    let dim = 3;
+    let alpha60 = 60 * Math.PI / 180;
+    let alpha30 = 10 * Math.PI / 180;
+
+    let MY = [
+        Math.sin(alpha60), 0, Math.cos(alpha60), 0,
+        0, 1, 0, 0,
+        Math.cos(alpha60), 0, -1 * Math.sin(alpha60), 0,
+        0, 0, 0, 1
+    ];
+    let MX = [
+        1, 0, 0, 0,
+        0, Math.cos(alpha30), -1 * Math.sin(alpha30), 0,
+        0, Math.sin(alpha30), Math.cos(alpha30), 0,
+        0, 0, 0, 1
+    ];
+
+    let P0 = {x: 300, y: 10, z: 0};
+    let P1 = {x: 10, y: 100, z: 0};
+    let P2 = {x: 350, y: 400, z: 0};
+
+    let Rot = MMMul(MY, MX);
+    let v;
+
+    let state = 0
+    canvas.addEventListener("click", function (event) {
+
+        switch (state) {
+            case 0:
+                P0.x = event.offsetX
+                P0.y = event.offsetY
+                state += 1
+                break;
+            case 1:
+                P1.x = event.offsetX
+                P1.y = event.offsetY
+                state += 1
+                break;
+            case 2:
+                P2.x = event.offsetX
+                P2.y = event.offsetY
+                v = beziers(P0, P1, P2);
+                for (let i = 0; i < 10; i += 1) {
+                    let alpha0 = i * Math.PI / 180;
+                    let alpha1 = i * Math.PI / 180;
+                    let M = [
+                        Math.cos(alpha0), 0, -1 * Math.sin(alpha0), 0,
+                        0, 1, 0, 0,
+                        Math.sin(alpha0), 0, Math.cos(alpha0), 0,
+                        0, 0, 0, 1
+                    ];
+                    let Mx = [
+                        1, 0, 0, 0,
+                        0, Math.cos(alpha1), -1 * Math.sin(alpha1), 0,
+                        0, Math.sin(alpha1), Math.cos(alpha1), 0,
+                        0, 0, 0, 1
+                    ];
+                    rotBeziers(Mx, M)
+                    rotBeziers(M, Mx)
+                }
+                state += 1
+                break;
+        }
+    });
+</script>
+
+</BODY>
+</html>
